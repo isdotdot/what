@@ -19,6 +19,8 @@ DESCRIPTION_FALLBACK = "A clear explanation of what something is."
 SYSTEM_PROMPT = """
 You write short, friendly blog posts that answer everyday questions starting with 'What is ... ?'.
 Tone: neutral + friendly, clear, practical. Audience: normal people searching the web.
+
+Never repeat topics that have already been covered on this site.
 """
 
 USER_PROMPT = """
@@ -28,6 +30,8 @@ Examples:
 - What is sleep paralysis?
 - What is a heat pump?
 - What is intermittent fasting?
+
+Choose a fresh, common 'What is ... ?' question that has not been covered before and avoid repeating previous topics.
 
 Output format:
 - Plain Markdown only.
@@ -44,9 +48,26 @@ def slugify(title: str) -> str:
     slug = slug.strip("-")
     return slug or "post"
 
+def get_existing_topics_snippet() -> str:
+    titles = []
+    for p in CONTENT_DIR.glob("*.md"):
+        try:
+            text = p.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        m = re.search(r'^title\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        if m:
+            titles.append(m.group(1))
+    titles = sorted(set(titles))
+    if not titles:
+        return ""
+    joined = "; ".join(titles[:50])
+    return f"\nExisting topics already covered on this site (do NOT repeat these): {joined}\n"
+
 def call_ollama() -> str:
     url = f"{OLLAMA_URL}/api/generate"
-    prompt = SYSTEM_PROMPT.strip() + "\n\n" + USER_PROMPT.strip()
+    history = get_existing_topics_snippet()
+    prompt = SYSTEM_PROMPT.strip() + history + "\n\n" + USER_PROMPT.strip()
 
     resp = requests.post(
         url,
@@ -110,6 +131,13 @@ def main():
 
     today = datetime.date.today().strftime("%Y-%m-%d")
     slug = slugify(title)
+
+    # Hard dedupe
+    existing_slugs = {p.stem.split("-", 3)[-1] for p in CONTENT_DIR.glob("*.md")}
+    if slug in existing_slugs:
+        print(f"Duplicate topic detected for slug '{slug}', skipping.")
+        return
+
     filename = f"{today}-{slug}.md"
     path = CONTENT_DIR / filename
     if path.exists():
