@@ -1,0 +1,35 @@
+{{- $title := .Title -}}
+{{- $siteTitle := .Site.Title -}}
+{{- $fullTitle := printf "%s · %s" $title $siteTitle -}}
+{{- $desc := cond (ne .Description "") .Description .Site.Params.description -}}
+{{- $url := .Permalink -}}
+{{- $image := .Site.Params.defaultSocialImage -}}
+
+<link rel="canonical" href="{{ $url }}"/>
+<meta name="description" content="{{ $desc }}"/>
+
+<meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
+<meta property="og:title" content="{{ $fullTitle }}">
+<meta property="og:description" content="{{ $desc }}">
+<meta property="og:url" content="{{ $url }}">
+{{- with $image }}<meta property="og:image" content="{{ . }}">{{ end }}
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ $fullTitle }}">
+<meta name="twitter:description" content="{{ $desc }}">
+{{- with .Site.Params.twitterHandle }}<meta name="twitter:site" content="{{ . }}">{{ end }}
+{{- with $image }}<meta name="twitter:image" content="{{ . }}">{{ end }}
+
+{{- if .IsPage }}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "{{ $title }}",
+  "description": "{{ $desc }}",
+  "url": "{{ $url }}",
+  "datePublished": "{{ .Date.Format "2006-01-02" }}",
+  "author": { "@type": "Person", "name": "isdotdot" }
+}
+</script>
+{{- end }}
